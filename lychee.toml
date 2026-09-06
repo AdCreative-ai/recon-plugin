@@ -8,6 +8,10 @@
 #   - auth-walled hosts (Jira, claude.ai artifacts): a checker cannot see them.
 #   - placeholders: shell vars in example commands, «SLOT: …» template markers
 #     (percent-encoded to %C2%AB… once resolved).
+#   - the four exact private architecture-owner files below: anonymous GitHub
+#     requests return 404. Maintainers verify them with authenticated access
+#     using docs/architecture/README.md#verification and the shared maintenance
+#     playbook. No other architecture URL or GitHub 404 is exempted.
 
 exclude = [
   '^https://github\.com/AdCreative-ai/recon-plugin/blob/',
@@ -16,6 +20,10 @@ exclude = [
   '\$\{?[A-Z_]+',
   '%C2%AB',
   '«',
+  '^https://github\.com/doruksahin/plugin-architecture/blob/main/docs/maintenance\.md(#check-links)?$',
+  '^https://github\.com/doruksahin/plugin-architecture/blob/main/docs/views\.md$',
+  '^https://github\.com/doruksahin/plugin-architecture/blob/main/standard/README\.md$',
+  '^https://github\.com/doruksahin/plugin-architecture/blob/f9961a34ba3665597e8d1d367e295e88f5aa1fea/tools/check-repository\.py$',
 ]
 
 exclude_path = [".git", "runs"]

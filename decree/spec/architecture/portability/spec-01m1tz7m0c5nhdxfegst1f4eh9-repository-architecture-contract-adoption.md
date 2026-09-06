@@ -3,11 +3,14 @@ date: '2026-09-06'
 governs:
 - .architecture/contract.json
 - .architecture/check.py
+- .architecture/lychee.toml
 - .github/workflows/architecture.yml
 - docs/architecture/README.md
 - docs/CLAUDE.md
 - AGENTS.md
+- CLAUDE.md
 - README.md
+- lychee.toml
 id: SPEC-01M1TZ7M0C5NHDXFEGST1F4EH9
 references:
 - ADR-01KZ0ZK4WYVWRY0WJM2CZ7ZS8C
@@ -54,6 +57,24 @@ the private shared owner. Add short architecture read triggers to `AGENTS.md`
 and `README.md`, and register the new documentation directory in
 `docs/CLAUDE.md` so the existing coherence rail retains complete role coverage.
 
+Architecture documentation maintenance routes architecture questions and edits
+through the local architecture page from both root agent entrypoints and the
+repository-docs editor contract. That page progressively discloses exact local
+source/decision links and shared architecture diagrams, the standard, and the
+maintenance playbook. Existing global editor rules and generated-source guards
+remain mandatory.
+
+The architecture workflow additionally installs lychee v0.24.2 through the
+pinned lychee action and requires offline local file and named-anchor checking
+for README, AGENTS, root/docs CLAUDE, and the architecture page. Its scoped
+configuration has no link exclusions. This gate makes no private external URL
+reachability claim and preserves the existing repository link check. The
+repository's online configuration enumerates only the four exact private
+architecture-owner files and the linked maintenance anchor as authentication
+exceptions; maintainers validate
+these separately with authenticated access. Public links and all other GitHub
+URLs keep their existing checks.
+
 ## Testing Strategy
 
 Run `python3 .architecture/check.py` directly and compare the vendored checker
@@ -61,6 +82,8 @@ to the shared owner with `cmp`. Run generated-adapter drift validation, link and
 coherence checks, Decree lint/progress, and the repository's single
 `tools/pre-commit-check.sh` gate. Review the diff to confirm plugin manifests,
 version mirrors, skills, scripts, runtime docs, and release files are unchanged.
+Run the exact documented lychee command with v0.24.2 and demonstrate that a
+missing local file or named anchor fails before restoring the valid link.
 
 ## Acceptance Criteria
 

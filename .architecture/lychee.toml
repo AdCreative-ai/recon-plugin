@@ -1,0 +1,4 @@
+# Architecture entrypoints use real Markdown links. This scoped configuration
+# does not inherit the optional network check's exclusions in ../lychee.toml.
+# CI and the documented local command check files and named anchors offline.
+cache = false

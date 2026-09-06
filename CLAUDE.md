@@ -1,8 +1,13 @@
 # CLAUDE.md
 
 This file provides repository-wide editor guidance to Claude Code, Codex, and
-other capable coding agents. `AGENTS.md` is the Codex entry point and delegates
-here so the accountable rules remain single-source.
+other capable coding agents. [AGENTS.md](AGENTS.md) is the Codex entry point and
+delegates here so the accountable rules remain single-source.
+
+For architecture questions or changes to responsibilities, interfaces,
+dependencies, execution, storage, or failure behavior, start with
+[repository architecture](docs/architecture/README.md). Follow its task-specific
+links for source owners, decisions, shared diagrams, and verification.
 
 ## What this repo is
 
@@ -98,7 +103,10 @@ tools/release.sh
 bash recon/scripts/lint-workspace.sh <TICKET>
 ```
 
-Optional tooling: `lychee` (external URL checking in the link check) and `uv` (commit-msg check + commitizen via `uvx`). The hooks warn instead of blocking when these are missing.
+The local commit rail requires `uv`. Local external-URL checking uses `lychee`
+when installed. Architecture CI installs its pinned lychee version and requires
+local file and anchor validation; see the
+[architecture verification commands](docs/architecture/README.md#verification).
 
 ## Commit convention (not cosmetic)
 
