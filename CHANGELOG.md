@@ -1,3 +1,9 @@
+## v0.22.1 (2026-09-06)
+
+### Bug Fixes
+
+- **tools**: accept verified Codex marketplace metadata (#14)
+
 ## v0.22.0 (2026-09-06)
 
 ### Features
