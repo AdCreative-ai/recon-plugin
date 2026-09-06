@@ -119,19 +119,18 @@ The central architecture model should follow these source entrypoints:
 - Repository verification: [`tools/pre-commit-check.sh`](../../tools/pre-commit-check.sh)
   composes links, coherence, universal controls, and Decree lint.
 
+The separate [Jira-to-packet producer](https://github.com/doruksahin/jira-to-packet/blob/main/docs/architecture/README.md)
+now owns Jira export orchestration and packet preparation. Recon continues to read Jira
+directly during triage and optionally saves an already rendered dossier as a `10-recon`
+stage run. It does not depend on that producer or create its Jira task packets.
+
+The [current ecosystem diagrams](https://github.com/doruksahin/plugin-architecture/blob/main/docs/views.md)
+record those independent responsibilities. The [shared playbook](https://github.com/doruksahin/plugin-architecture/blob/main/docs/workflows.md)
+owns the cross-repository command sequence.
+
 ## Planned changes
 
-A separate Jira producer that creates Jira task packets is planned at the
-ecosystem level. It does not exist in this repository and is not current Recon
-behavior: today triage reads Jira directly. When an operator explicitly
-requests dossier storage after rendering, Recon saves the current dossier and
-workspace as a `10-recon` stage run in the selected task-packet store; it does
-not create the Jira task packet.
-
-The [planned ecosystem diagrams](https://github.com/doruksahin/plugin-architecture/blob/main/docs/views.md)
-keep proposed extraction separate from current behavior. This documentation
-maintenance changes no Recon runtime, adapter, release, Jira gate, or storage
-behavior.
+No Recon runtime or storage-boundary change is planned as part of this extraction.
 
 ## Decisions
 
