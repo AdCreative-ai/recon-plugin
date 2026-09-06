@@ -1,3 +1,13 @@
+## v0.22.0 (2026-09-06)
+
+### Features
+
+- **report**: store current runs in task packet store (#8)
+
+### Bug Fixes
+
+- **report**: pin corrected task packet store (#9)
+
 ## v0.21.0 (2026-08-11)
 
 ### Features

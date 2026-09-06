@@ -121,7 +121,7 @@ parity/anti-drift policy are defined in
 
 ### Runtime scope
 
-<!-- coherence:version -->Version `v0.21.0` executes on Claude Code and local Codex (app or CLI). Hosted
+<!-- coherence:version -->Version `v0.22.0` executes on Claude Code and local Codex (app or CLI). Hosted
 ChatGPT, Codex Cloud, MCP, centralized Jira authentication, shared remote state,
 and remote publishing are intentionally outside this release rather than
 partially supported.
