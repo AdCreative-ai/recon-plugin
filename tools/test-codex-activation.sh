@@ -93,13 +93,13 @@ case "${1:-}:${2:-}:${3:-}" in
       printf 'Error: failed to load marketplace(s):\n- `other-plugin` at /nonexistent: marketplace root does not contain a supported manifest\n' >&2
       exit 1
     fi
-    python3 - "$FAKE_CONFIGURED_ROOT" "${FAKE_SOURCE_TYPE:-local}" <<'PY'
+    python3 - "$FAKE_CONFIGURED_ROOT" "${FAKE_SOURCE_TYPE:-local}" "${FAKE_MARKETPLACE_SOURCE:-$FAKE_CONFIGURED_ROOT}" <<'PY'
 import json, sys
-root, source_type = sys.argv[1:3]
+root, source_type, source = sys.argv[1:4]
 print(json.dumps({"marketplaces": [{
     "name": "recon-plugin",
     "root": root,
-    "marketplaceSource": {"sourceType": source_type, "source": root},
+    "marketplaceSource": {"sourceType": source_type, "source": source},
 }]}))
 PY
     ;;
@@ -151,10 +151,35 @@ esac
 SH
 chmod +x "$FAKE_BIN/codex"
 
-run_activation() {
+run_activation_at() {
+  local configured_root="$1"
+  shift
   env PATH="$FAKE_BIN:$PATH" \
-    FAKE_CONFIGURED_ROOT="$CONFIGURED" FAKE_ADD_LOG="$ADD_LOG" "$@" \
+    FAKE_CONFIGURED_ROOT="$configured_root" FAKE_ADD_LOG="$ADD_LOG" \
+    FAKE_MARKETPLACE_SOURCE="$REMOTE" "$@" \
     bash -c 'cd "$1" && bash "$2"' _ "$SOURCE" "$ACTIVATOR"
+}
+
+run_activation() {
+  run_activation_at "$CONFIGURED" "$@"
+}
+
+write_codex_marketplace_marker() {
+  local root="$1" revision="$2" sparse_paths="$3" ref_name="${4:-master}" source="${5:-$REMOTE}"
+  python3 - "$root" "$source" "$revision" "$sparse_paths" "$ref_name" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root, source, revision, sparse_paths, ref_name = sys.argv[1:]
+Path(root, ".codex-marketplace-install.json").write_text(json.dumps({
+    "source_type": "git",
+    "source": source,
+    "ref_name": ref_name,
+    "revision": revision,
+    "sparse_paths": json.loads(sparse_paths),
+}) + "\n")
+PY
 }
 
 OUTPUT="$(run_activation)" || fail "clean separate clone did not activate"
@@ -169,6 +194,100 @@ grep -Fq '"version":"0.15.0"' "$CONFIGURED/recon/.codex-plugin/plugin.json" || \
   fail "configured clone did not fast-forward to v0.15.0"
 [ "$(git -C "$CONFIGURED" rev-parse HEAD)" = "$SOURCE_HEAD" ] || \
   fail "configured clone HEAD did not match source release"
+
+# Codex itself writes a single root receipt for a Git marketplace. The rail
+# accepts it only when its live source, ref, revision, and no-sparse contract
+# match this exact configured checkout.
+write_codex_marketplace_marker "$CONFIGURED" "$SOURCE_HEAD" '[]'
+MARKER_OUTPUT="$(run_activation FAKE_SOURCE_TYPE=git)" || \
+  fail "verified Codex marketplace marker was refused"
+assert_contains "$MARKER_OUTPUT" "codex: activated recon@recon-plugin v0.15.0" \
+  "verified Codex marker activation"
+
+# Receipt parsing is deliberately narrow: malformed content and a symlink must
+# not gain the marker exception, even when they are the sole untracked record.
+printf '{not valid json\n' >"$CONFIGURED/.codex-marketplace-install.json"
+set +e
+MALFORMED_MARKER_OUTPUT="$(run_activation FAKE_SOURCE_TYPE=git 2>&1)"
+MALFORMED_MARKER_RC=$?
+set -e
+[ "$MALFORMED_MARKER_RC" -ne 0 ] || fail "malformed Codex marketplace marker was accepted"
+assert_contains "$MALFORMED_MARKER_OUTPUT" "is not valid JSON" \
+  "malformed Codex marker refusal"
+
+rm "$CONFIGURED/.codex-marketplace-install.json"
+ln -s recon/.codex-plugin/plugin.json "$CONFIGURED/.codex-marketplace-install.json"
+set +e
+SYMLINK_MARKER_OUTPUT="$(run_activation FAKE_SOURCE_TYPE=git 2>&1)"
+SYMLINK_MARKER_RC=$?
+set -e
+[ "$SYMLINK_MARKER_RC" -ne 0 ] || fail "symlink Codex marketplace marker was accepted"
+assert_contains "$SYMLINK_MARKER_OUTPUT" "must be a regular non-symlink file" \
+  "symlink Codex marker refusal"
+rm "$CONFIGURED/.codex-marketplace-install.json"
+
+# A full-shaped object ID still has to attest this exact checkout revision.
+ZERO_REVISION="$(printf '%0*s' "${#SOURCE_HEAD}" '' | tr ' ' 0)"
+write_codex_marketplace_marker "$CONFIGURED" "$ZERO_REVISION" '[]'
+set +e
+STALE_MARKER_OUTPUT="$(run_activation FAKE_SOURCE_TYPE=git 2>&1)"
+STALE_MARKER_RC=$?
+set -e
+[ "$STALE_MARKER_RC" -ne 0 ] || fail "stale Codex marketplace marker revision was accepted"
+assert_contains "$STALE_MARKER_OUTPUT" "revision does not match configured checkout HEAD" \
+  "stale Codex marker revision refusal"
+
+# A Git-shaped receipt belongs only to a Git marketplace, never a local one.
+write_codex_marketplace_marker "$CONFIGURED" "$SOURCE_HEAD" '[]'
+set +e
+LOCAL_MARKER_OUTPUT="$(run_activation FAKE_SOURCE_TYPE=local 2>&1)"
+LOCAL_MARKER_RC=$?
+set -e
+[ "$LOCAL_MARKER_RC" -ne 0 ] || fail "local marketplace accepted Codex Git marker"
+assert_contains "$LOCAL_MARKER_OUTPUT" "is only valid for a Git marketplace" \
+  "local Codex marker refusal"
+
+# A clean local marketplace that is this release checkout remains valid while
+# detached: no receipt exception or origin lookup is needed for clean state.
+git -C "$SOURCE" checkout -q --detach
+DETACHED_LOCAL_OUTPUT="$(run_activation_at "$SOURCE" FAKE_SOURCE_TYPE=local FAKE_MARKETPLACE_SOURCE="$SOURCE")" || \
+  fail "clean detached local marketplace did not activate"
+assert_contains "$DETACHED_LOCAL_OUTPUT" "codex: activated recon@recon-plugin v0.15.0" \
+  "clean detached local marketplace activation"
+git -C "$SOURCE" switch -q master
+
+# A marker with a sparse checkout declaration cannot be accepted merely
+# because it is the only untracked root file.
+write_codex_marketplace_marker "$CONFIGURED" "$SOURCE_HEAD" '["recon"]'
+set +e
+SPARSE_MARKER_OUTPUT="$(run_activation FAKE_SOURCE_TYPE=git 2>&1)"
+SPARSE_MARKER_RC=$?
+set -e
+[ "$SPARSE_MARKER_RC" -ne 0 ] || fail "sparse Codex marketplace marker was accepted"
+assert_contains "$SPARSE_MARKER_OUTPUT" "sparse_paths must be empty" \
+  "sparse Codex marker refusal"
+
+# The marker provenance must name the configured checkout ref and the live
+# marketplace source; a lookalike receipt cannot authorize that checkout.
+write_codex_marketplace_marker "$CONFIGURED" "$SOURCE_HEAD" '[]' feature
+set +e
+REF_MARKER_OUTPUT="$(run_activation FAKE_SOURCE_TYPE=git 2>&1)"
+REF_MARKER_RC=$?
+set -e
+[ "$REF_MARKER_RC" -ne 0 ] || fail "wrong-ref Codex marketplace marker was accepted"
+assert_contains "$REF_MARKER_OUTPUT" "ref_name does not match configured checkout ref" \
+  "wrong-ref Codex marker refusal"
+
+write_codex_marketplace_marker "$CONFIGURED" "$SOURCE_HEAD" '[]' master \
+  'https://example.invalid/not-recon.git'
+set +e
+SOURCE_MARKER_OUTPUT="$(run_activation FAKE_SOURCE_TYPE=git 2>&1)"
+SOURCE_MARKER_RC=$?
+set -e
+[ "$SOURCE_MARKER_RC" -ne 0 ] || fail "wrong-source Codex marketplace marker was accepted"
+assert_contains "$SOURCE_MARKER_OUTPUT" "source does not match Codex marketplace metadata" \
+  "wrong-source Codex marker refusal"
+rm "$CONFIGURED/.codex-marketplace-install.json"
 
 set +e
 STALE_OUTPUT="$(run_activation FAKE_STALE_INSTALL=1 2>&1)"
