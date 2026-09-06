@@ -6,6 +6,10 @@ historical name, it is the repository-wide editor contract. Also read the
 nearest directory-level `CLAUDE.md` before changing files in `recon/skills/`,
 `recon/scripts/`, `recon/docs/`, `tools/`, or `docs/`.
 
+Before changing repository responsibilities, interfaces, dependencies,
+execution or storage boundaries, or failure behavior, read
+[`docs/architecture/README.md`](docs/architecture/README.md).
+
 Read [`docs/agent-behavior/README.md`](docs/agent-behavior/README.md) before
 proposing or changing Recon behavior. It is the binding operating mentality for
 agent work in this repository: start from an observed task outcome, prefer

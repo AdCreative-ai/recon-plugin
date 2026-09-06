@@ -21,5 +21,6 @@
 | SPEC-01KZRNHBPKFJ53FGTE6W30K5TT | Recorder Failed-Start Recovery With Marker-Owned Server Shutdown | implemented | 2026-08-11 |
 | SPEC-01KZRNHBT9MF1GZHSA205NS07X | Release And Activation Rails Fail Honestly | implemented | 2026-08-11 |
 | SPEC-01M1SMA0CR7BCGE0821Z46YWYW | Recon Task Packet Store Delivery | implemented | 2026-09-05 |
+| SPEC-01M1TZ7M0C5NHDXFEGST1F4EH9 | Repository Architecture Contract Adoption | implemented | 2026-09-06 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->
