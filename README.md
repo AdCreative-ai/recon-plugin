@@ -8,6 +8,9 @@ the canonical source and release repository. The public
 personal portfolio and distribution mirror; changes and releases originate in
 the organization repository.
 
+See [Repository architecture](docs/architecture/README.md) for the source
+entrypoints, dependency boundaries, execution model, and owning decisions.
+
 ```text
 Recon Triage ATT-1234
   ├─ six blocker checks → triage.yaml

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "recon-plugin",
+  "kind": "plugin",
+  "repository": "https://github.com/AdCreative-ai/recon-plugin",
+  "owner": "AdCreative-ai",
+  "document": "docs/architecture/README.md",
+  "sourcePaths": [
+    "recon/.claude-plugin/plugin.json",
+    "recon/skills/recon-triage/SKILL.md",
+    "recon/skills/recon-report/SKILL.md",
+    "recon/scripts/reconctl.sh",
+    "recon/scripts/store-dossier.sh",
+    "recon/docs/pipeline.md",
+    "recon/docs/hosts.md",
+    "recon/docs/storage.md",
+    "tools/generate-adapters.py",
+    "tools/pre-commit-check.sh"
+  ],
+  "dependencyChecks": [],
+  "boundaryChecks": []
+}
