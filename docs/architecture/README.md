@@ -1,8 +1,19 @@
 # Recon repository architecture
 
-This page is the concise repository boundary map. The shipped workflow and its
-invariants remain owned by the [pipeline contract](../../recon/docs/pipeline.md),
-and architectural decisions remain owned by Decree.
+Start here for architecture work. Read only the branch needed for the task:
+
+| Task | Read next |
+| --- | --- |
+| Explain Recon's boundary or dependencies | [Responsibility](#responsibility), [interfaces](#interfaces), and [dependencies](#dependencies) |
+| Change execution or optional storage | [Execution and storage](#execution-and-storage), then the linked source contract |
+| Find code or the owning decision | [Current implementation](#current-implementation) or [decisions](#decisions) |
+| Update this architecture documentation | [Verification](#verification) and the [shared maintenance playbook](https://github.com/doruksahin/plugin-architecture/blob/main/docs/maintenance.md) |
+| Compare plugins or plan a new one | [Shared architecture diagrams](https://github.com/doruksahin/plugin-architecture/blob/main/docs/views.md) and [shared standard](https://github.com/doruksahin/plugin-architecture/blob/main/standard/README.md) |
+
+Shared documents are in the private architecture repository and require access.
+The local contract and CI work without that access. Workflow invariants remain
+owned by the [pipeline contract](../../recon/docs/pipeline.md), and Decree owns
+architectural decisions.
 
 ## Responsibility
 
@@ -37,7 +48,8 @@ Repository installation and runtime invocation are separate relationships:
 - Repository installation declares no npm, Python, `@doruksahin/*`, or
   `@adcreative/*` package dependency; there is no package manifest in this
   repository. Native host marketplaces install the plugin files directly, so
-  `.architecture/contract.json` has no `dependencyChecks` entry.
+  [the machine contract](../../.architecture/contract.json) has an empty
+  `dependencyChecks` list.
 - The base local runtime preflight requires `bash`, `python3`, and `git`.
   Shipped Python rails import only Python standard-library modules. Triage adds
   `curl`, authenticated `gh`, Jira environment credentials, and network access.
@@ -47,9 +59,10 @@ Repository installation and runtime invocation are separate relationships:
   and a caller-supplied absolute store config. It invokes the exact
   `@doruksahin/task-packet-store` package pin with `npm exec`; that one-off CLI
   invocation is not a repository installation dependency.
-- Repository-only verification uses Python, shell, `uv run decree`, and
-  PyYAML-backed tooling. `lychee` is optional for external link checking.
-  These do not become shipped plugin imports.
+- Repository-only verification uses Python, shell, Decree, and PyYAML-backed
+  tooling. Architecture CI installs a pinned lychee version for local file and
+  anchor checks. The existing local external-URL check uses lychee when
+  installed. These do not become shipped plugin imports.
 
 The executable host and storage prerequisites remain owned by the
 [host contract](../../recon/docs/hosts.md) and
@@ -115,8 +128,10 @@ requests dossier storage after rendering, Recon saves the current dossier and
 workspace as a `10-recon` stage run in the selected task-packet store; it does
 not create the Jira task packet.
 
-No Recon runtime, adapter, release, Jira-gate, or storage behavior change is
-planned as part of this architecture-contract rollout.
+The [planned ecosystem diagrams](https://github.com/doruksahin/plugin-architecture/blob/main/docs/views.md)
+keep proposed extraction separate from current behavior. This documentation
+maintenance changes no Recon runtime, adapter, release, Jira gate, or storage
+behavior.
 
 ## Decisions
 
@@ -130,11 +145,36 @@ planned as part of this architecture-contract rollout.
 
 ## Verification
 
-Pull requests and pushes run `python3 .architecture/check.py` from the vendored
-repository copy. Maintainer verification also compares that file byte-for-byte
-with the shared owner, runs `python3 tools/generate-adapters.py --check`, and
-runs `bash tools/pre-commit-check.sh`.
+For architecture or entrypoint-doc changes, run from the repository root:
 
-The vendored checker is synchronized from private architecture-owner commit
-`f9961a34ba3665597e8d1d367e295e88f5aa1fea`; its SHA-256 is
+```bash
+python3 .architecture/check.py
+lychee --config .architecture/lychee.toml --offline --include-fragments=anchor-only --no-progress README.md AGENTS.md CLAUDE.md docs/CLAUDE.md docs/architecture/README.md
+bash tools/pre-commit-check.sh
+```
+
+The [architecture workflow](../../.github/workflows/architecture.yml) runs the
+first two checks on every pull request and push, installing lychee v0.24.2.
+Use that version locally for the same CLI and anchor behavior. Its dedicated
+[lychee configuration](../../.architecture/lychee.toml) checks local files and
+named Markdown/HTML anchors with no network requests; it does not validate
+private external URLs. The existing
+[repository link check](../../tools/check-links.sh) retains its separate
+external-URL behavior and [configuration](../../lychee.toml). That configuration
+lists the four private architecture-owner files and the linked maintenance
+anchor individually so contributors
+without access can still commit. Maintainers validate those URLs with
+authenticated access as described in the
+[shared link-checking instructions](https://github.com/doruksahin/plugin-architecture/blob/main/docs/maintenance.md#check-links).
+
+Before committing, stage the complete change and run the full
+[commit gate](../../tools/pre-commit-check.sh). It includes generated-adapter
+and report drift checks, link checks, behavior controls, and Decree lint.
+When the shared checker or model changes, follow the
+[shared maintenance playbook](https://github.com/doruksahin/plugin-architecture/blob/main/docs/maintenance.md)
+for synchronization and cross-repository audit commands.
+
+The [vendored checker](../../.architecture/check.py) is synchronized from
+[architecture-owner commit f9961a3](https://github.com/doruksahin/plugin-architecture/blob/f9961a34ba3665597e8d1d367e295e88f5aa1fea/tools/check-repository.py);
+its SHA-256 is
 `52524a78978b568a56ca611e0a99feb574185b311283b26790d18fe9c121225d`.

@@ -8,8 +8,9 @@ the canonical source and release repository. The public
 personal portfolio and distribution mirror; changes and releases originate in
 the organization repository.
 
-See [Repository architecture](docs/architecture/README.md) for the source
-entrypoints, dependency boundaries, execution model, and owning decisions.
+For architecture questions or changes, start with
+[Repository architecture](docs/architecture/README.md), then follow the relevant
+source, decision, shared diagram, or verification link.
 
 ```text
 Recon Triage ATT-1234
@@ -157,16 +158,19 @@ rail, while commit-msg blocks subjects that would never reach the changelog:
 
 ```bash
 git config core.hooksPath .githooks
-brew install lychee   # optional; without it, external URLs go unchecked
+brew install lychee   # local link checks; architecture CI installs its pinned version
 brew install uv       # required by the local commit rail
 ```
 
-`tools/pre-commit-check.sh` is the one local entry point. It resolves the docs'
-own file references against the working tree (backticked script names,
+[tools/pre-commit-check.sh](tools/pre-commit-check.sh) is the one local entry
+point. It resolves the docs' own file references against the working tree (backticked script names,
 `../`-relative paths, and the `blob/master` links in
 [docs/flow.html](docs/flow.html)), checks generated views and isolated
 contracts, then validates Decree records. Run it any time with
 `bash tools/pre-commit-check.sh`. Do not bypass it for normal work.
+
+Architecture changes also run the pinned local file and anchor check documented
+in [architecture verification](docs/architecture/README.md#verification).
 
 Native adapter files are generated, not hand-authored:
 
