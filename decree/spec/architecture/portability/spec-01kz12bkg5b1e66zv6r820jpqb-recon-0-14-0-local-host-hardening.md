@@ -115,6 +115,15 @@ passes. Do not commit, tag, push, publish, or post to Jira as part of this SPEC.
 - [x] Adapter drift, skill validation, plugin validation, shell syntax, links, coherence, workspace smoke, and Decree lint all pass.
 - [x] The locally installed Codex plugin is refreshed from the validated working tree and reports version `0.14.0`.
 
+## Governance refresh
+
+Reviewed on 2026-09-06 against the current local-host, activation, and
+repository-control sources. This implemented record remains the historical
+owner of the shared local-host baseline and its original acceptance evidence.
+The narrower release-install attestation is maintained by
+[`SPEC-01KZRNHBT9MF1GZHSA205NS07X`](../../reliability/evidence/spec-01kzrnhbt9mf1gzhsa205ns07x-release-and-activation-rails-fail-honestly.md).
+This review preserves the accepted outcome, status, and completed criteria.
+
 ## Completed Outcome
 
 The local runtime contract now has one mechanical owner, `reconctl.sh`, for
