@@ -60,6 +60,7 @@ else:
     print("yes")
     print(row.get("root", ""))
     print(source.get("sourceType", "unknown"))
+    print(source.get("source", ""))
 ' "$MARKETPLACE")"
 configured="$(printf '%s\n' "$configured_info" | sed -n '1p')"
 
@@ -72,6 +73,7 @@ fi
 
 CONFIGURED_ROOT="$(printf '%s\n' "$configured_info" | sed -n '2p')"
 SOURCE_TYPE="$(printf '%s\n' "$configured_info" | sed -n '3p')"
+MARKETPLACE_SOURCE="$(printf '%s\n' "$configured_info" | sed -n '4p')"
 [ -n "$CONFIGURED_ROOT" ] || refuse "marketplace '$MARKETPLACE' has no configured root"
 [ -d "$CONFIGURED_ROOT" ] || refuse "configured marketplace root is missing: $CONFIGURED_ROOT"
 CONFIGURED_ROOT="$(cd "$CONFIGURED_ROOT" && pwd -P)"
@@ -307,14 +309,122 @@ print(plugin_relative)
 PY
 }
 
+# Codex writes this receipt at the root of a Git marketplace checkout. It is
+# accepted only when it names the live marketplace source, checkout ref, and
+# exact checkout revision. Any other untracked entry remains a refusal; the
+# materialized-plugin-tree attestation below still rejects ignored or extra
+# content inside recon/.
+assert_configured_checkout_clean() {
+  local phase="$1" status current_head current_ref current_origin detail
+  # A clean checkout needs no receipt provenance. In particular, a local
+  # marketplace can point at this clean release checkout while it is detached.
+  status="$(git -C "$CONFIGURED_ROOT" status --porcelain --untracked-files=all)" || refuse \
+    "configured marketplace status could not be read $phase: $CONFIGURED_ROOT"
+  [ -z "$status" ] && return 0
+
+  # Only Codex's own untracked Git-marketplace receipt needs a branch and
+  # origin. Its claims are compared to both the live marketplace metadata and
+  # the checkout it accompanies before treating that one dirty record as safe.
+  current_head="$(git -C "$CONFIGURED_ROOT" rev-parse HEAD 2>/dev/null)" || refuse \
+    "configured marketplace has no Git HEAD $phase: $CONFIGURED_ROOT"
+  current_ref="$(git -C "$CONFIGURED_ROOT" branch --show-current 2>/dev/null)"
+  [ -n "$current_ref" ] || refuse "configured marketplace is detached with a marketplace receipt $phase: $CONFIGURED_ROOT"
+  current_origin="$(git -C "$CONFIGURED_ROOT" remote get-url origin 2>/dev/null)" || refuse \
+    "configured marketplace clone has no origin remote for its marketplace receipt $phase: $CONFIGURED_ROOT"
+
+  if ! detail="$(python3 - "$CONFIGURED_ROOT" "$SOURCE_TYPE" "$MARKETPLACE_SOURCE" "$current_origin" "$current_ref" "$current_head" 2>&1 <<'PY'
+import json
+import os
+import re
+import stat
+import subprocess
+import sys
+from pathlib import Path
+from urllib.parse import urlparse
+
+root = Path(sys.argv[1])
+source_type, marketplace_source, configured_origin, expected_ref, expected_revision = sys.argv[2:]
+marker_name = ".codex-marketplace-install.json"
+
+
+def normalize_origin(value):
+    value = value.strip().rstrip("/")
+    if value.startswith("git@") and ":" in value:
+        host, path = value[4:].split(":", 1)
+        normalized = f"{host.lower()}/{path}"
+    elif "://" in value:
+        parsed = urlparse(value)
+        if parsed.scheme == "file":
+            normalized = str(Path(parsed.path).resolve())
+        else:
+            normalized = f"{(parsed.hostname or '').lower()}/{parsed.path.lstrip('/')}"
+    else:
+        normalized = str(Path(value).resolve())
+    return re.sub(r"\.git$", "", normalized).rstrip("/")
+
+
+records = [
+    record
+    for record in subprocess.run(
+        ["git", "-C", str(root), "status", "--porcelain=v1", "-z", "--untracked-files=all"],
+        check=True,
+        stdout=subprocess.PIPE,
+    ).stdout.split(b"\0")
+    if record
+]
+if not records:
+    raise SystemExit(0)
+
+expected_record = b"?? " + marker_name.encode("utf-8")
+if records != [expected_record]:
+    raise SystemExit("unexpected checkout status entry: " + records[0].decode("utf-8", "backslashreplace"))
+if source_type != "git":
+    raise SystemExit(f"{marker_name} is only valid for a Git marketplace")
+if not marketplace_source:
+    raise SystemExit("Codex marketplace source is missing")
+
+marker = root / marker_name
+try:
+    marker_stat = os.lstat(marker)
+except OSError:
+    raise SystemExit(f"{marker_name} cannot be inspected") from None
+if not stat.S_ISREG(marker_stat.st_mode) or stat.S_ISLNK(marker_stat.st_mode):
+    raise SystemExit(f"{marker_name} must be a regular non-symlink file")
+try:
+    payload = json.loads(marker.read_text(encoding="utf-8"))
+except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+    raise SystemExit(f"{marker_name} is not valid JSON") from None
+
+required = {"ref_name", "revision", "source", "source_type", "sparse_paths"}
+if not isinstance(payload, dict) or set(payload) != required:
+    raise SystemExit(f"{marker_name} must contain exactly {sorted(required)}")
+if payload["source_type"] != "git":
+    raise SystemExit(f"{marker_name} source_type must be git")
+if not isinstance(payload["source"], str) or normalize_origin(payload["source"]) != normalize_origin(marketplace_source):
+    raise SystemExit(f"{marker_name} source does not match Codex marketplace metadata")
+if normalize_origin(payload["source"]) != normalize_origin(configured_origin):
+    raise SystemExit(f"{marker_name} source does not match configured checkout origin")
+if payload["ref_name"] != expected_ref:
+    raise SystemExit(f"{marker_name} ref_name does not match configured checkout ref")
+if not isinstance(payload["revision"], str) or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", payload["revision"]):
+    raise SystemExit(f"{marker_name} revision is not a full lowercase Git object ID")
+if payload["revision"] != expected_revision:
+    raise SystemExit(f"{marker_name} revision does not match configured checkout HEAD")
+if payload["sparse_paths"] != []:
+    raise SystemExit(f"{marker_name} sparse_paths must be empty")
+PY
+)"; then
+    refuse "configured marketplace clone is dirty $phase: $CONFIGURED_ROOT ($detail)"
+  fi
+}
+
 if [ "$SOURCE_TYPE" = local ] && [ "$CONFIGURED_ROOT" != "$ROOT" ]; then
   CONFIGURED_TOP="$(git -C "$CONFIGURED_ROOT" rev-parse --show-toplevel 2>/dev/null)" || refuse \
     "separate local marketplace is not a git checkout: $CONFIGURED_ROOT; reconfigure with: codex plugin marketplace remove $MARKETPLACE && codex plugin marketplace add $ROOT"
   CONFIGURED_TOP="$(cd "$CONFIGURED_TOP" && pwd -P)"
   [ "$CONFIGURED_TOP" = "$CONFIGURED_ROOT" ] || refuse \
     "configured marketplace root is not its Git checkout root: $CONFIGURED_ROOT"
-  [ -z "$(git -C "$CONFIGURED_ROOT" status --porcelain --untracked-files=all)" ] || refuse \
-    "configured marketplace clone is dirty: $CONFIGURED_ROOT"
+  assert_configured_checkout_clean ""
   SOURCE_ORIGIN="$(git -C "$ROOT" remote get-url origin 2>/dev/null)" || refuse \
     "source repo has no origin remote: $ROOT"
   CONFIGURED_ORIGIN="$(git -C "$CONFIGURED_ROOT" remote get-url origin 2>/dev/null)" || refuse \
@@ -336,8 +446,7 @@ CONFIGURED_TOP="$(git -C "$CONFIGURED_ROOT" rev-parse --show-toplevel 2>/dev/nul
 CONFIGURED_TOP="$(cd "$CONFIGURED_TOP" && pwd -P)"
 [ "$CONFIGURED_TOP" = "$CONFIGURED_ROOT" ] || refuse \
   "configured marketplace root is not its Git checkout root: $CONFIGURED_ROOT"
-[ -z "$(git -C "$CONFIGURED_ROOT" status --porcelain --untracked-files=all)" ] || refuse \
-  "configured marketplace clone is dirty after synchronization: $CONFIGURED_ROOT"
+assert_configured_checkout_clean "after synchronization"
 
 if [ "$CONFIGURED_ROOT" != "$ROOT" ]; then
   SOURCE_ORIGIN="$(git -C "$ROOT" remote get-url origin 2>/dev/null)" || refuse \
@@ -380,8 +489,7 @@ attest_release_state() {
 
   [ -z "$(git -C "$ROOT" status --porcelain --untracked-files=all)" ] || refuse \
     "source release checkout is dirty after $boundary: $ROOT"
-  [ -z "$(git -C "$CONFIGURED_ROOT" status --porcelain --untracked-files=all)" ] || refuse \
-    "configured marketplace clone is dirty after $boundary: $CONFIGURED_ROOT"
+  assert_configured_checkout_clean "after $boundary"
   source_head_now="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)" || refuse \
     "source release checkout lost its Git HEAD after $boundary: $ROOT"
   configured_head_now="$(git -C "$CONFIGURED_ROOT" rev-parse HEAD 2>/dev/null)" || refuse \

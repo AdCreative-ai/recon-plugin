@@ -156,6 +156,15 @@ part of the tests.
 - [x] Codex activation binds clean same-origin checkouts to the released HEAD/version, attests exact materialized plugin-tree equality before/after installation and after the install report, and verifies the actual enabled version/source path before success.
 - [x] Adapter, link, coherence, host-contract, verifier, shell-syntax, Decree, and diff checks pass.
 
+## Governance refresh
+
+Reviewed on 2026-09-06 against the current source-to-install and Codex
+activation rails. This implemented record continues to own the original
+checkout and materialized-plugin-tree attestation boundary. The narrow
+maintenance for release-install failure handling is maintained by
+[`SPEC-01KZRNHBT9MF1GZHSA205NS07X`](spec-01kzrnhbt9mf1gzhsa205ns07x-release-and-activation-rails-fail-honestly.md).
+This review preserves the accepted outcome, status, and completed criteria.
+
 ## Completed Outcome
 
 Recon's company handoff now crosses two mechanical trust boundaries: live repro
