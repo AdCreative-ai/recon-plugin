@@ -1,7 +1,7 @@
 # Optional task-packet storage
 
 Recon can save an already-rendered current run through the published
-`@doruksahin/task-packet-store@0.1.1` CLI. This is an explicit optional
+`@doruksahin/task-packet-store@0.2.0` CLI. This is an explicit optional
 delivery. It does not publish a host artifact, post to Jira, or grant either
 approval.
 
@@ -35,19 +35,23 @@ credential-free config already selected for the workflow. The `fs` driver
 needs only its persistent root. The `gdrive` driver reads exactly one of
 `PACKET_STORE_DRIVE_SERVICE_ACCOUNT_CREDENTIALS` or
 `PACKET_STORE_DRIVE_TOKEN` from the environment; never put a credential in
-the config, command, workspace, or repository.
+the config, command, workspace, or repository. The `git` driver needs a
+`remote` URL the host can already push to with its own git credentials (SSH
+agent or credential helper) and `git` on PATH; never put a token in the URL.
 
 Internally the rail runs the exact public package pin through npm:
 
 ```bash
 env 'npm_config_@doruksahin:registry=https://registry.npmjs.org/' \
-  npm exec --yes --package=@doruksahin/task-packet-store@0.1.1 -- \
+  npm exec --yes --package=@doruksahin/task-packet-store@0.2.0 -- \
   task-packet-store <operation>
 ```
 
 This one-off bootstrap requires Node.js 20 or newer. Drive additionally needs
-the package's pinned rclone runtime. Recon has no transport branch: the same
-`begin`, `checkpoint`, and `locate` calls serve both store drivers.
+the package's pinned rclone runtime; git additionally needs `git` 2.28+ on
+PATH and its own ambient credentials, and uses no rclone. Recon has no
+transport branch: the same `begin`, `checkpoint`, and `locate` calls serve all
+three store drivers.
 
 ## Result contract
 
@@ -59,7 +63,7 @@ location lookup succeeds:
 {
   "schemaVersion": 1,
   "operation": "recon-dossier-store",
-  "package": "@doruksahin/task-packet-store@0.1.1",
+  "package": "@doruksahin/task-packet-store@0.2.0",
   "tool": "recon@0.21.0",
   "ticket": "PROJ-123",
   "stage": "10-recon",
@@ -84,7 +88,9 @@ location lookup succeeds:
 
 `locations.run` is the supporting-evidence root. Filesystem locations are
 readable absolute paths. Drive locations are URLs for callers that already
-have access; locating them does not change sharing permissions.
+have access; locating them does not change sharing permissions. Git locations
+are `<remote>#<40-hex commit>:<[prefix/]ticket/relativePath>` references into
+the pinned commit, not a working-tree checkout that already exists on disk.
 
 If validation, reservation, checkpointing, or any lookup fails, the command
 exits nonzero, writes the phase diagnostic to stderr, and keeps stdout empty.

@@ -69,10 +69,10 @@ storage sees the same artifact registry without reading an archive or writing
 a receipt/state artifact into the live Recon workspace.
 
 The rail invokes exactly
-`@doruksahin/task-packet-store@0.1.1` through npm's one-off CLI path. It sets
+`@doruksahin/task-packet-store@0.2.0` through npm's one-off CLI path. It sets
 the package's public scoped registry for that subprocess while preserving the
 rest of the operator environment. The package remains the sole owner of store
-JSON validation, filesystem and Drive transports, credentials, run numbering,
+JSON validation, filesystem, Drive, and git transports, credentials, run numbering,
 checkpoint inventory, and location lookup. `begin` reserves stage
 `10-recon`; `--tool` is `recon@<plugin_version from meta.yaml>`. One final
 `checkpoint` uploads the complete staged current run. Four `locate` calls
@@ -132,7 +132,7 @@ is part of repository validation; private CI owns that acceptance.
 
 - [x] The documented command accepts absolute `--store`, `--ticket`, and
       current-workspace `--source` inputs and pins
-      `@doruksahin/task-packet-store@0.1.1`.
+      `@doruksahin/task-packet-store@0.2.0`.
 - [x] The adapter reserves `stages/10-recon/runs/vN`, checkpoints the complete
       registered current run, includes supporting evidence, and never reads or
       stores top-level `runs/`.
@@ -191,3 +191,11 @@ the same isolated filesystem store, reserved consecutive `v3` and `v4` runs,
 resolved all four locations for both, retained the support bytes, excluded the
 unreadable archive, and produced identical primary-result digests. Google Drive
 was not mutated by this repository follow-up.
+
+On 2026-09-09, the pin moved to `@doruksahin/task-packet-store@0.2.0` to
+consume the package's new `git` driver. The hermetic adapter suite verified
+that the rail accepts the package's `git` driver `doctor` metadata and
+`locate` locations, alongside the existing `fs` and `gdrive` coverage. Live
+git-remote acceptance — an actual push to a real remote — is not this
+repository's claim; it belongs to the cross-repository acceptance suite in
+agent-workflows (`tests/acceptance`).

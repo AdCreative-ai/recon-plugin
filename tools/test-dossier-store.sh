@@ -54,7 +54,7 @@ printf '\n' >>"$FAKE_LOG"
 shift
 [ "${1:-}" = "--yes" ] || { echo "FAKE_ARGS: expected --yes" >&2; exit 2; }
 shift
-[ "${1:-}" = "--package=@doruksahin/task-packet-store@0.1.1" ] \
+[ "${1:-}" = "--package=@doruksahin/task-packet-store@0.2.0" ] \
   || { echo "FAKE_ARGS: exact package pin missing" >&2; exit 2; }
 shift
 [ "${1:-}" = "--" ] && [ "${2:-}" = "task-packet-store" ] \
@@ -87,15 +87,25 @@ case "$command_name" in
     python3 - "$store" <<'PY'
 import json, sys
 config = json.load(open(sys.argv[1], encoding="utf-8"))
-if config["driver"] == "fs":
+driver = config["driver"]
+if driver == "fs":
     print(json.dumps({"driver": "fs", "rclone": None, "rcloneTested": "1.75.0",
                       "credential": "none", "remoteRoot": config["root"]}))
-else:
+elif driver == "gdrive":
     prefix = config.get("prefix", "")
     suffix = f"/{prefix}" if prefix else ""
     print(json.dumps({"driver": "gdrive", "rclone": "1.75.0", "rcloneTested": "1.75.0",
                       "credential": "PACKET_STORE_DRIVE_TOKEN",
                       "remoteRoot": f":drive,team_drive={config['sharedDriveId']}:{suffix}"}))
+else:
+    branch = config.get("branch", "main")
+    prefix = config.get("prefix", "")
+    remote_root = f"{config['remote']}#{branch}"
+    if prefix:
+        remote_root += f":{prefix}"
+    print(json.dumps({"driver": "git", "git": "2.43.0",
+                      "credential": "ambient git credentials",
+                      "remoteRoot": remote_root}))
 PY
     ;;
   begin)
@@ -145,6 +155,7 @@ PY
   locate)
     ticket="$(value_for --ticket "$@")"
     relative="$(value_for --path "$@")"
+    store="$(value_for --store "$@")"
     target="$FAKE_STORE_ROOT/$ticket/$relative"
     if [ "${FAKE_FAIL_PATH:-}" = "$relative" ]; then
       echo "FAKE_LOCATE: injected failure for $relative" >&2
@@ -152,10 +163,21 @@ PY
     fi
     [ -e "$target" ] || { echo "FAKE_LOCATE: missing $relative" >&2; exit 1; }
     if [ -d "$target" ]; then kind=directory; else kind=file; fi
-    python3 - "$ticket" "$relative" "$kind" "$target" <<'PY'
-import json, sys
-ticket, relative, kind, location = sys.argv[1:]
-print(json.dumps({"ticket": ticket, "driver": "fs", "relativePath": relative,
+    python3 - "$ticket" "$relative" "$kind" "$target" "$store" <<'PY'
+import hashlib, json, sys
+ticket, relative, kind, target, store_path = sys.argv[1:]
+config = json.load(open(store_path, encoding="utf-8"))
+driver = config["driver"]
+if driver == "git":
+    branch = config.get("branch", "main")
+    prefix = config.get("prefix", "")
+    # One clone serves every locate of a run, so all four locations share one commit.
+    commit = hashlib.sha1(ticket.encode()).hexdigest()
+    path = f"{prefix}/{ticket}/{relative}" if prefix else f"{ticket}/{relative}"
+    location = f"{config['remote']}#{commit}:{path}"
+else:
+    location = target
+print(json.dumps({"ticket": ticket, "driver": driver, "relativePath": relative,
                   "kind": kind, "location": location}))
 PY
     ;;
@@ -215,7 +237,7 @@ python3 - "$RECEIPT1" "$FAKE_STORE" "$TICKET" <<'PY' || fail "first receipt cont
 import json, pathlib, sys
 receipt = json.loads(sys.argv[1])
 root, ticket = pathlib.Path(sys.argv[2]), sys.argv[3]
-assert receipt["package"] == "@doruksahin/task-packet-store@0.1.1"
+assert receipt["package"] == "@doruksahin/task-packet-store@0.2.0"
 assert receipt["tool"] == "recon@0.21.0"
 assert receipt["ticket"] == ticket and receipt["stage"] == "10-recon" and receipt["version"] == "v1"
 assert receipt["primaryResult"] == "report/dossier.html"
@@ -247,7 +269,7 @@ pass
 
 EXPECTED_CALLS=14
 [ "$(wc -l <"$LOG" | tr -d ' ')" -eq "$EXPECTED_CALLS" ] || fail "expected $EXPECTED_CALLS pinned package calls"
-if grep -vF -- '--package=@doruksahin/task-packet-store@0.1.1' "$LOG" | grep -q .; then
+if grep -vF -- '--package=@doruksahin/task-packet-store@0.2.0' "$LOG" | grep -q .; then
   fail "a package call was not exactly pinned"
 fi
 pass
@@ -371,6 +393,25 @@ fi
 [ ! -s "$FIXTURE/locate.out" ] || fail "locate failure emitted a success receipt"
 assert_contains "$(cat "$FIXTURE/locate.err")" "locate-primary failed" "locate failure diagnostic"
 [ -f "$FAKE_STORE/$LOCATE_TICKET/stages/10-recon/runs/v1/snapshot.json" ] || fail "locate failure did not reach persisted checkpoint"
+pass
+
+GIT_TICKET="PROJ-131"
+GIT_WORKSPACE="$(make_workspace "$GIT_TICKET")"
+GIT_CONFIG="$FIXTURE/git-store.json"
+printf '{"driver":"git","remote":"file:///fixture/remote.git","branch":"main"}\n' >"$GIT_CONFIG"
+GIT_RECEIPT="$(env "${ENV_ARGS[@]}" bash "$STORE_DOSSIER" --store "$GIT_CONFIG" --ticket "$GIT_TICKET" --source "$GIT_WORKSPACE")"
+python3 - "$GIT_RECEIPT" <<'PY' || fail "git receipt contract"
+import json, re, sys
+receipt = json.loads(sys.argv[1])
+assert receipt["package"] == "@doruksahin/task-packet-store@0.2.0"
+locations = receipt["locations"]
+assert len(locations) == 4, "expected four git locations"
+pattern = re.compile(r"^file:///fixture/remote\.git#[0-9a-f]{40}:PROJ-131/.+$")
+for label, value in locations.items():
+    assert value["driver"] == "git", f"{label} driver is not git"
+    assert pattern.match(value["location"]), f"{label} location does not match the git grammar: {value['location']}"
+PY
+assert_contains "$GIT_RECEIPT" '"version":"v1"' "git delivery reserves v1"
 pass
 
 echo "dossier store: PASS — $PASS_COUNT contract groups"

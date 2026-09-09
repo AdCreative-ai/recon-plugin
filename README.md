@@ -146,8 +146,10 @@ partially supported.
    shared location. `recon/scripts/reconctl.sh root` prints the active value.
 5. **Task-packet storage** — optional. Node.js 20+ runs the exact pinned store
    CLI; Google Drive additionally needs the package's rclone runtime and one
-   environment credential. See the literal command, receipt, and acceptance
-   recipes in [recon/docs/storage.md](recon/docs/storage.md).
+   environment credential, and the `git` driver additionally needs `git`
+   2.28+ on PATH and its own ambient credentials. See the literal command,
+   receipt, and acceptance recipes in
+   [recon/docs/storage.md](recon/docs/storage.md).
 
 ## Contributing to this repo
 

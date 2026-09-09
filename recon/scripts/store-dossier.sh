@@ -7,7 +7,7 @@
 # and emits one JSON receipt only after every saved location resolves.
 set -euo pipefail
 
-PACKAGE="@doruksahin/task-packet-store@0.1.1"
+PACKAGE="@doruksahin/task-packet-store@0.2.0"
 STAGE="10-recon"
 PRIMARY="report/dossier.html"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -162,7 +162,7 @@ with open(doctor_path, encoding="utf-8") as handle:
 
 driver = doctor.get("driver")
 remote_root = doctor.get("remoteRoot")
-if driver not in {"fs", "gdrive"} or not isinstance(remote_root, str) or not remote_root:
+if driver not in {"fs", "gdrive", "git"} or not isinstance(remote_root, str) or not remote_root:
     raise SystemExit("dossier-store: doctor returned incoherent store metadata")
 if driver != "fs":
     raise SystemExit(0)
@@ -337,7 +337,7 @@ drivers = set()
 for label, value, relative, kind in expected_locations:
     if value.get("ticket") != ticket or value.get("relativePath") != relative or value.get("kind") != kind:
         raise SystemExit(f"dossier-store: {label} location does not match the saved run")
-    if value.get("driver") not in {"fs", "gdrive"} or not isinstance(value.get("location"), str) or not value["location"]:
+    if value.get("driver") not in {"fs", "gdrive", "git"} or not isinstance(value.get("location"), str) or not value["location"]:
         raise SystemExit(f"dossier-store: {label} location is incomplete")
     drivers.add(value["driver"])
 if len(drivers) != 1:
