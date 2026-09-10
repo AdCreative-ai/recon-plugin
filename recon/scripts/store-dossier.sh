@@ -148,7 +148,9 @@ PY
 }
 
 # Ask the package to validate its own config and expose its resolved transport
-# metadata. For filesystem stores only, reject every source/destination overlap
+# metadata. The package owns which drivers exist and rejects the rest, so the
+# rail only requires that metadata be coherent — never an allowlist of names.
+# For filesystem stores only, reject every source/destination overlap
 # before begin can create run.md inside the live Recon workspace.
 run_tps doctor doctor --store "$STORE"
 python3 - "$WORK/doctor.json" "$SOURCE" "$TICKET" <<'PY'
@@ -162,7 +164,7 @@ with open(doctor_path, encoding="utf-8") as handle:
 
 driver = doctor.get("driver")
 remote_root = doctor.get("remoteRoot")
-if driver not in {"fs", "gdrive", "git"} or not isinstance(remote_root, str) or not remote_root:
+if not isinstance(driver, str) or not driver or not isinstance(remote_root, str) or not remote_root:
     raise SystemExit("dossier-store: doctor returned incoherent store metadata")
 if driver != "fs":
     raise SystemExit(0)
@@ -284,6 +286,7 @@ python3 - \
   "$WORK/locate-primary.json" \
   "$WORK/locate-run-record.json" \
   "$WORK/locate-snapshot.json" \
+  "$WORK/doctor.json" \
   "$PACKAGE" "$TOOL" "$TICKET" "$STAGE" "$VERSION" "$SOURCE" "$PRIMARY" "$LINT_OUTPUT" <<'PY'
 import json
 import re
@@ -296,6 +299,7 @@ import sys
     primary_path,
     record_path,
     snapshot_path,
+    doctor_path,
     package,
     tool,
     ticket,
@@ -316,6 +320,7 @@ run = load(run_path)
 primary_location = load(primary_path)
 run_record = load(record_path)
 snapshot = load(snapshot_path)
+store_driver = load(doctor_path).get("driver")
 run_directory = f"stages/{stage}/runs/{version}"
 
 if checkpoint.get("version") != version:
@@ -337,9 +342,13 @@ drivers = set()
 for label, value, relative, kind in expected_locations:
     if value.get("ticket") != ticket or value.get("relativePath") != relative or value.get("kind") != kind:
         raise SystemExit(f"dossier-store: {label} location does not match the saved run")
-    if value.get("driver") not in {"fs", "gdrive", "git"} or not isinstance(value.get("location"), str) or not value["location"]:
+    location_driver = value.get("driver")
+    if not isinstance(location_driver, str) or not location_driver \
+            or not isinstance(value.get("location"), str) or not value["location"]:
         raise SystemExit(f"dossier-store: {label} location is incomplete")
-    drivers.add(value["driver"])
+    if location_driver != store_driver:
+        raise SystemExit(f"dossier-store: {label} location driver does not match the store")
+    drivers.add(location_driver)
 if len(drivers) != 1:
     raise SystemExit("dossier-store: saved locations disagree on transport")
 

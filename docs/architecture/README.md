@@ -83,8 +83,8 @@ Repository-only replay and review laboratories do not ship with the plugin.
 
 Task-packet-store is an optional output adapter for an already-rendered current
 Recon run. A normal triage, discovery, repro, state, or report flow does not
-consume a task packet and does not probe for a store. Filesystem and Google
-Drive transport behavior remains owned by task-packet-store; Recon owns only
+consume a task packet and does not probe for a store. Transport behavior for every store
+driver remains owned by task-packet-store; Recon owns only
 the explicit delivery adapter and its truthful receipt.
 
 ## Failure behavior
