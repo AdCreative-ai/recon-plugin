@@ -1,3 +1,9 @@
+## v0.23.0 (2026-09-10)
+
+### Features
+
+- **report**: accept git-backed task-packet stores (#15)
+
 ## v0.22.1 (2026-09-06)
 
 ### Bug Fixes
