@@ -145,10 +145,11 @@ partially supported.
    `~/.claude/recon`; set `RECON_ROOT` to any absolute path to use a neutral or
    shared location. `recon/scripts/reconctl.sh root` prints the active value.
 5. **Task-packet storage** — optional. Node.js 20+ runs the exact pinned store
-   CLI; Google Drive additionally needs the package's rclone runtime and one
-   environment credential, and the `git` driver additionally needs `git`
-   2.28+ on PATH and its own ambient credentials. See the literal command,
-   receipt, and acceptance recipes in
+   CLI. What a specific driver adds on top of that — rclone and one environment
+   credential for Drive, `git` and its ambient credentials for a git remote —
+   belongs to the store package and is listed in its
+   [requirements](https://github.com/doruksahin/task-packet-store/blob/main/README.md#requirements).
+   See the literal command, receipt, and acceptance recipes in
    [recon/docs/storage.md](recon/docs/storage.md).
 
 ## Contributing to this repo

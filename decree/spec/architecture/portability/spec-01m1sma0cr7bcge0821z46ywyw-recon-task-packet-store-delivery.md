@@ -72,7 +72,7 @@ The rail invokes exactly
 `@doruksahin/task-packet-store@0.2.0` through npm's one-off CLI path. It sets
 the package's public scoped registry for that subprocess while preserving the
 rest of the operator environment. The package remains the sole owner of store
-JSON validation, filesystem, Drive, and git transports, credentials, run numbering,
+JSON validation, its transports, credentials, run numbering,
 checkpoint inventory, and location lookup. `begin` reserves stage
 `10-recon`; `--tool` is `recon@<plugin_version from meta.yaml>`. One final
 `checkpoint` uploads the complete staged current run. Four `locate` calls
@@ -199,3 +199,14 @@ that the rail accepts the package's `git` driver `doctor` metadata and
 git-remote acceptance — an actual push to a real remote — is not this
 repository's claim; it belongs to the cross-repository acceptance suite in
 agent-workflows (`tests/acceptance`).
+
+On 2026-09-10, the rail stopped carrying a driver allowlist. `doctor` and
+`locate` metadata is now checked for coherence — a non-empty driver string, a
+non-empty remote root and location, and one driver shared by the store and all
+four saved locations — instead of being matched against a fixed set of names.
+The package alone decides which drivers exist and rejects the rest before Recon
+sees them. The hermetic suite grew to fourteen contract groups: one delivers
+through a fake driver name Recon has never heard of and requires a success
+receipt, and one makes a `locate` result disagree with the store's own driver
+and requires a nonzero exit with empty stdout. Adding a driver to the package no
+longer touches this repository.

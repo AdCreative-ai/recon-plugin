@@ -31,13 +31,13 @@ workspace must already contain regular `meta.yaml`, `triage/triage.yaml`, and
 workspace.
 
 The package owns the store JSON schema and its validation. Use the same
-credential-free config already selected for the workflow. The `fs` driver
-needs only its persistent root. The `gdrive` driver reads exactly one of
-`PACKET_STORE_DRIVE_SERVICE_ACCOUNT_CREDENTIALS` or
-`PACKET_STORE_DRIVE_TOKEN` from the environment; never put a credential in
-the config, command, workspace, or repository. The `git` driver needs a
-`remote` URL the host can already push to with its own git credentials (SSH
-agent or credential helper) and `git` on PATH; never put a token in the URL.
+credential-free config already selected for the workflow. Which drivers exist,
+the keys each one takes, and the credential each one reads are the package's to
+document —
+[task-packet-store configuration](https://github.com/doruksahin/task-packet-store/blob/main/README.md#configuration).
+Recon keeps no list of driver names and rejects nothing the package accepts.
+Recon's own rule holds for every driver: never put a credential in the config,
+command, workspace, or repository.
 
 Internally the rail runs the exact public package pin through npm:
 
@@ -47,11 +47,11 @@ env 'npm_config_@doruksahin:registry=https://registry.npmjs.org/' \
   task-packet-store <operation>
 ```
 
-This one-off bootstrap requires Node.js 20 or newer. Drive additionally needs
-the package's pinned rclone runtime; git additionally needs `git` 2.28+ on
-PATH and its own ambient credentials, and uses no rclone. Recon has no
-transport branch: the same `begin`, `checkpoint`, and `locate` calls serve all
-three store drivers.
+This one-off bootstrap requires Node.js 20 or newer. Whatever else a driver
+needs from the host is listed in the package's
+[requirements](https://github.com/doruksahin/task-packet-store/blob/main/README.md#requirements).
+Recon has no transport branch: the same `begin`, `checkpoint`, and `locate`
+calls serve every store driver the package supports.
 
 ## Result contract
 
@@ -86,11 +86,12 @@ location lookup succeeds:
 }
 ```
 
-`locations.run` is the supporting-evidence root. Filesystem locations are
-readable absolute paths. Drive locations are URLs for callers that already
-have access; locating them does not change sharing permissions. Git locations
-are `<remote>#<40-hex commit>:<[prefix/]ticket/relativePath>` references into
-the pinned commit, not a working-tree checkout that already exists on disk.
+`locations.run` is the supporting-evidence root. Every `location` is the
+package's own `locate` result for the configured driver, copied into the
+receipt without rewriting; the
+[package command reference](https://github.com/doruksahin/task-packet-store/blob/main/README.md#commands)
+defines that grammar. The receipt reports where the run was saved; locating it
+grants nobody access and changes no sharing permission.
 
 If validation, reservation, checkpointing, or any lookup fails, the command
 exits nonzero, writes the phase diagnostic to stderr, and keeps stdout empty.

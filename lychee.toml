@@ -8,10 +8,12 @@
 #   - auth-walled hosts (Jira, claude.ai artifacts): a checker cannot see them.
 #   - placeholders: shell vars in example commands, «SLOT: …» template markers
 #     (percent-encoded to %C2%AB… once resolved).
-#   - the six exact private architecture-owner and producer files below:
+#   - the seven exact private architecture-owner and producer files below:
 #     anonymous GitHub requests return 404. Maintainers verify them with authenticated access
 #     using docs/architecture/README.md#verification and the shared maintenance
-#     playbook. No other architecture URL or GitHub 404 is exempted.
+#     playbook. The last one is the task-packet-store README, which owns the
+#     driver set this repo deliberately does not restate. No other architecture
+#     URL or GitHub 404 is exempted.
 
 exclude = [
   '^https://github\.com/AdCreative-ai/recon-plugin/blob/',
@@ -26,6 +28,7 @@ exclude = [
   '^https://github\.com/doruksahin/plugin-architecture/blob/f9961a34ba3665597e8d1d367e295e88f5aa1fea/tools/check-repository\.py$',
   '^https://github\.com/doruksahin/plugin-architecture/blob/main/docs/workflows\.md$',
   '^https://github\.com/doruksahin/jira-to-packet/blob/main/docs/architecture/README\.md$',
+  '^https://github\.com/doruksahin/task-packet-store/blob/main/README\.md(#(configuration|requirements|commands))?$',
 ]
 
 exclude_path = [".git", "runs"]

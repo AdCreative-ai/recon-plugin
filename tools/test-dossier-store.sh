@@ -97,7 +97,7 @@ elif driver == "gdrive":
     print(json.dumps({"driver": "gdrive", "rclone": "1.75.0", "rcloneTested": "1.75.0",
                       "credential": "PACKET_STORE_DRIVE_TOKEN",
                       "remoteRoot": f":drive,team_drive={config['sharedDriveId']}:{suffix}"}))
-else:
+elif driver == "git":
     branch = config.get("branch", "main")
     prefix = config.get("prefix", "")
     remote_root = f"{config['remote']}#{branch}"
@@ -106,6 +106,11 @@ else:
     print(json.dumps({"driver": "git", "git": "2.43.0",
                       "credential": "ambient git credentials",
                       "remoteRoot": remote_root}))
+else:
+    # Any further driver the package may own: a name Recon has never heard of,
+    # reported with coherent metadata.
+    print(json.dumps({"driver": driver, "credential": "none",
+                      "remoteRoot": config["remote"]}))
 PY
     ;;
   begin)
@@ -163,9 +168,9 @@ PY
     fi
     [ -e "$target" ] || { echo "FAKE_LOCATE: missing $relative" >&2; exit 1; }
     if [ -d "$target" ]; then kind=directory; else kind=file; fi
-    python3 - "$ticket" "$relative" "$kind" "$target" "$store" <<'PY'
+    python3 - "$ticket" "$relative" "$kind" "$target" "$store" "${FAKE_LOCATE_DRIVER:-}" <<'PY'
 import hashlib, json, sys
-ticket, relative, kind, target, store_path = sys.argv[1:]
+ticket, relative, kind, target, store_path, reported_driver = sys.argv[1:]
 config = json.load(open(store_path, encoding="utf-8"))
 driver = config["driver"]
 if driver == "git":
@@ -175,10 +180,12 @@ if driver == "git":
     commit = hashlib.sha1(ticket.encode()).hexdigest()
     path = f"{prefix}/{ticket}/{relative}" if prefix else f"{ticket}/{relative}"
     location = f"{config['remote']}#{commit}:{path}"
+elif "remote" in config:
+    location = f"{config['remote']}/{ticket}/{relative}"
 else:
     location = target
-print(json.dumps({"ticket": ticket, "driver": driver, "relativePath": relative,
-                  "kind": kind, "location": location}))
+print(json.dumps({"ticket": ticket, "driver": reported_driver or driver,
+                  "relativePath": relative, "kind": kind, "location": location}))
 PY
     ;;
   *)
@@ -412,6 +419,39 @@ for label, value in locations.items():
     assert pattern.match(value["location"]), f"{label} location does not match the git grammar: {value['location']}"
 PY
 assert_contains "$GIT_RECEIPT" '"version":"v1"' "git delivery reserves v1"
+pass
+
+# The package owns the driver set. A driver name this rail has never seen must
+# deliver like any other as long as doctor and locate agree on it.
+UNKNOWN_TICKET="PROJ-132"
+UNKNOWN_WORKSPACE="$(make_workspace "$UNKNOWN_TICKET")"
+UNKNOWN_CONFIG="$FIXTURE/unknown-driver-store.json"
+printf '{"driver":"fixture-driver","remote":"fixture://store"}\n' >"$UNKNOWN_CONFIG"
+UNKNOWN_RECEIPT="$(env "${ENV_ARGS[@]}" bash "$STORE_DOSSIER" \
+  --store "$UNKNOWN_CONFIG" --ticket "$UNKNOWN_TICKET" --source "$UNKNOWN_WORKSPACE")"
+python3 - "$UNKNOWN_RECEIPT" <<'PY' || fail "unfamiliar-driver receipt contract"
+import json, sys
+receipt = json.loads(sys.argv[1])
+locations = receipt["locations"]
+assert len(locations) == 4, "expected four unfamiliar-driver locations"
+for label, value in locations.items():
+    assert value["driver"] == "fixture-driver", f"{label} driver is not the store's driver"
+    prefix = "fixture://store/PROJ-132/stages/10-recon/runs/v1"
+    assert value["location"].startswith(prefix), f"{label} location: {value['location']}"
+PY
+assert_contains "$UNKNOWN_RECEIPT" '"version":"v1"' "unfamiliar-driver delivery reserves v1"
+pass
+
+MISMATCH_TICKET="PROJ-133"
+MISMATCH_WORKSPACE="$(make_workspace "$MISMATCH_TICKET")"
+if env "${ENV_ARGS[@]}" FAKE_LOCATE_DRIVER=fixture-driver bash "$STORE_DOSSIER" \
+  --store "$CONFIG" --ticket "$MISMATCH_TICKET" --source "$MISMATCH_WORKSPACE" \
+  >"$FIXTURE/driver-mismatch.out" 2>"$FIXTURE/driver-mismatch.err"; then
+  fail "a locate driver disagreeing with the store unexpectedly passed"
+fi
+[ ! -s "$FIXTURE/driver-mismatch.out" ] || fail "driver mismatch emitted a success receipt"
+assert_contains "$(cat "$FIXTURE/driver-mismatch.err")" \
+  "location driver does not match the store" "driver mismatch diagnostic"
 pass
 
 echo "dossier store: PASS — $PASS_COUNT contract groups"
