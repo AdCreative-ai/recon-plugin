@@ -1,3 +1,9 @@
+## v0.23.1 (2026-09-10)
+
+### Internal
+
+- **report**: let the store package own the driver set (#16)
+
 ## v0.23.0 (2026-09-10)
 
 ### Features
